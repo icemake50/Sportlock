@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0f0f0f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SportLock">
+<title>SportLock</title>
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0a0a;--bg2:#141414;--bg3:#1e1e1e;--bg4:#282828;
+  --accent:#e8ff47;--accent2:#b8ff00;--danger:#ff4444;--success:#44ff88;
+  --text:#ffffff;--text2:#aaaaaa;--text3:#666666;
+  --radius:14px;--radius-sm:8px;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;}
+#app{height:100vh;overflow:hidden;position:relative;}
+
+/* LOCK SCREEN */
+#lock-screen{
+  position:fixed;inset:0;background:var(--bg);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:flex-start;
+  overflow:hidden;
+}
+.lock-bg{
+  position:absolute;inset:0;
+  background:radial-gradient(ellipse at 50% 0%, rgba(232,255,71,0.08) 0%, transparent 60%);
+  pointer-events:none;
+}
+.lock-header{
+  width:100%;padding:60px 24px 0;text-align:center;position:relative;z-index:1;
+}
+.lock-icon{font-size:52px;margin-bottom:12px;display:block;}
+.lock-title{font-family:'Bebas Neue',sans-serif;font-size:42px;letter-spacing:2px;color:var(--accent);line-height:1;}
+.lock-subtitle{font-size:13px;color:var(--text3);margin-top:6px;letter-spacing:1px;text-transform:uppercase;}
+.lock-time{
+  font-family:'Bebas Neue',sans-serif;font-size:26px;
+  color:var(--text3);margin-top:8px;letter-spacing:2px;
+}
+.lock-progress-wrap{
+  width:calc(100% - 48px);margin:24px 0 0;position:relative;z-index:1;
+}
+.lock-progress-bar{
+  height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;
+}
+.lock-progress-fill{
+  height:100%;background:linear-gradient(90deg,var(--accent2),var(--accent));
+  border-radius:2px;transition:width 0.4s ease;
+}
+.lock-progress-text{
+  display:flex;justify-content:space-between;margin-top:8px;
+  font-size:12px;color:var(--text3);
+}
+
+/* WORKOUT LIST */
+.workout-list{
+  width:100%;flex:1;overflow-y:auto;padding:16px 20px 120px;
+  position:relative;z-index:1;
+  scroll-behavior:smooth;
+}
+.workout-list::-webkit-scrollbar{display:none;}
+
+.exercise-item{
+  background:var(--bg2);border:1px solid var(--bg4);
+  border-radius:var(--radius);padding:16px;margin-bottom:10px;
+  display:flex;align-items:center;gap:14px;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  cursor:pointer;user-select:none;position:relative;overflow:hidden;
+}
+.exercise-item::after{
+  content:'';position:absolute;inset:0;background:var(--accent);
+  transform:scaleX(0);transform-origin:left;transition:transform 0.3s ease;
+  opacity:0.06;border-radius:var(--radius);
+}
+.exercise-item.done{
+  border-color:rgba(232,255,71,0.3);background:rgba(232,255,71,0.04);
+}
+.exercise-item.done::after{transform:scaleX(1);}
+.exercise-item:active{transform:scale(0.97);}
+
+.ex-check{
+  width:28px;height:28px;border-radius:50%;border:2px solid var(--bg4);
+  display:flex;align-items:center;justify-content:center;
+  transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);flex-shrink:0;
+  background:transparent;
+}
+.exercise-item.done .ex-check{
+  background:var(--accent);border-color:var(--accent);transform:scale(1.1);
+}
+.ex-check svg{width:14px;height:14px;stroke:var(--bg);stroke-width:2.5;fill:none;opacity:0;transition:opacity 0.2s 0.1s;}
+.exercise-item.done .ex-check svg{opacity:1;}
+.ex-info{flex:1;}
+.ex-name{font-size:16px;font-weight:500;color:var(--text);transition:color 0.3s;}
+.exercise-item.done .ex-name{color:var(--accent);}
+.ex-detail{font-size:13px;color:var(--text3);margin-top:2px;}
+.ex-emoji{font-size:24px;flex-shrink:0;}
+
+/* UNLOCK BUTTON */
+.unlock-wrap{
+  position:fixed;bottom:0;left:0;right:0;
+  padding:16px 20px 32px;background:linear-gradient(transparent,var(--bg) 30%);
+  z-index:10000;
+}
+.unlock-btn{
+  width:100%;padding:18px;border:none;border-radius:var(--radius);
+  font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:2px;
+  cursor:pointer;transition:all 0.3s;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+}
+.unlock-btn.locked{
+  background:var(--bg3);color:var(--text3);cursor:not-allowed;
+}
+.unlock-btn.unlocked{
+  background:var(--accent);color:var(--bg);
+  animation:pulse-btn 2s infinite;
+}
+@keyframes pulse-btn{
+  0%,100%{box-shadow:0 0 0 0 rgba(232,255,71,0.4);}
+  50%{box-shadow:0 0 0 12px rgba(232,255,71,0);}
+}
+
+/* MAIN APP */
+#main-app{
+  display:none;flex-direction:column;height:100vh;overflow:hidden;
+}
+#main-app.visible{display:flex;}
+
+/* TABS */
+.tab-bar{
+  display:flex;padding:12px 16px 8px;gap:8px;border-bottom:1px solid var(--bg3);
+  background:var(--bg);
+}
+.tab-btn{
+  flex:1;padding:10px 6px;border:none;border-radius:var(--radius-sm);
+  background:transparent;color:var(--text3);font-family:'DM Sans',sans-serif;
+  font-size:12px;font-weight:500;cursor:pointer;transition:all 0.2s;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+}
+.tab-btn .ti{font-size:20px;}
+.tab-btn.active{background:var(--bg3);color:var(--accent);}
+.tab-content{display:none;flex:1;overflow-y:auto;padding-bottom:20px;}
+.tab-content.active{display:block;}
+.tab-content::-webkit-scrollbar{display:none;}
+
+/* SETTINGS */
+.section{padding:20px 20px 0;}
+.section-title{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent);margin-bottom:12px;}
+.card{background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);padding:16px;margin-bottom:10px;}
+.setting-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--bg3);}
+.setting-row:last-child{border-bottom:none;padding-bottom:0;}
+.setting-label{font-size:14px;color:var(--text2);}
+.setting-value{font-size:14px;color:var(--text);font-weight:500;}
+
+/* TIME PICKER */
+.time-input{
+  background:var(--bg3);border:1px solid var(--bg4);border-radius:var(--radius-sm);
+  padding:8px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;
+  font-weight:500;-webkit-appearance:none;width:120px;text-align:center;
+}
+.time-input:focus{outline:none;border-color:var(--accent);}
+
+/* TOGGLE */
+.toggle-wrap{position:relative;width:50px;height:26px;}
+.toggle-wrap input{opacity:0;width:0;height:0;position:absolute;}
+.toggle-slider{
+  position:absolute;inset:0;background:var(--bg4);border-radius:13px;
+  cursor:pointer;transition:0.3s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;height:20px;width:20px;left:3px;bottom:3px;
+  background:var(--text3);border-radius:50%;transition:0.3s;
+}
+input:checked+.toggle-slider{background:rgba(232,255,71,0.2);}
+input:checked+.toggle-slider::before{transform:translateX(24px);background:var(--accent);}
+
+/* EXERCISE EDITOR */
+.ex-editor{display:flex;flex-direction:column;gap:10px;}
+.ex-row{
+  background:var(--bg2);border:1px solid var(--bg3);border-radius:var(--radius);
+  padding:14px;display:flex;align-items:center;gap:10px;
+}
+.ex-row-handle{color:var(--text3);font-size:18px;cursor:grab;}
+.ex-row input{
+  flex:1;background:transparent;border:none;color:var(--text);
+  font-family:'DM Sans',sans-serif;font-size:14px;outline:none;
+}
+.ex-row input::placeholder{color:var(--text3);}
+.ex-row-del{
+  background:none;border:none;color:var(--text3);cursor:pointer;
+  padding:4px;border-radius:6px;transition:color 0.2s;font-size:18px;
+}
+.ex-row-del:hover{color:var(--danger);}
+.ex-row-emoji{font-size:20px;cursor:pointer;}
+
+.add-ex-btn{
+  width:100%;padding:14px;background:transparent;border:1px dashed var(--bg4);
+  border-radius:var(--radius);color:var(--text3);font-family:'DM Sans',sans-serif;
+  font-size:14px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;
+  justify-content:center;gap:8px;
+}
+.add-ex-btn:hover{border-color:var(--accent);color:var(--accent);}
+
+/* PRIMARY BTN */
+.btn-primary{
+  width:100%;padding:16px;background:var(--accent);border:none;
+  border-radius:var(--radius);color:var(--bg);font-family:'Bebas Neue',sans-serif;
+  font-size:20px;letter-spacing:1px;cursor:pointer;transition:opacity 0.2s;
+  margin-top:16px;
+}
+.btn-primary:active{opacity:0.85;}
+
+/* STATUS / TODAY VIEW */
+.streak-banner{
+  margin:20px;background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:1px solid var(--bg4);border-radius:var(--radius);padding:20px;
+  display:flex;align-items:center;gap:16px;
+}
+.streak-num{font-family:'Bebas Neue',sans-serif;font-size:52px;color:var(--accent);line-height:1;}
+.streak-label{font-size:13px;color:var(--text3);}
+.streak-sub{font-size:15px;font-weight:500;color:var(--text2);}
+
+.toast{
+  position:fixed;top:20px;left:50%;transform:translateX(-50%) translateY(-80px);
+  background:var(--accent);color:var(--bg);padding:12px 24px;border-radius:30px;
+  font-weight:600;font-size:14px;z-index:99999;transition:transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+  white-space:nowrap;
+}
+.toast.show{transform:translateX(-50%) translateY(0);}
+
+/* EMOJI PICKER */
+.emoji-picker{
+  position:fixed;bottom:0;left:0;right:0;
+  background:var(--bg2);border-top:1px solid var(--bg3);
+  padding:16px;z-index:99999;border-radius:20px 20px 0 0;
+  transform:translateY(100%);transition:transform 0.3s;
+}
+.emoji-picker.open{transform:translateY(0);}
+.emoji-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;max-height:200px;overflow-y:auto;}
+.emoji-grid span{font-size:28px;text-align:center;cursor:pointer;padding:4px;border-radius:8px;}
+.emoji-grid span:active{background:var(--bg3);}
+
+/* REPEAT SELECTOR */
+.repeat-grid{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;}
+.day-btn{
+  padding:6px 10px;border:1px solid var(--bg4);border-radius:6px;
+  background:transparent;color:var(--text3);font-size:12px;cursor:pointer;transition:all 0.2s;
+}
+.day-btn.active{background:rgba(232,255,71,0.1);border-color:var(--accent);color:var(--accent);}
+
+@import url('https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css');
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.8.0/dist/tabler-icons.min.css">
+</head>
+<body>
+
+<div id="app">
+  <!-- LOCK SCREEN -->
+  <div id="lock-screen">
+    <div class="lock-bg"></div>
+    <div class="lock-header">
+      <span class="lock-icon">🏋️</span>
+      <div class="lock-title">SportLock</div>
+      <div class="lock-subtitle">Complète ton programme</div>
+      <div class="lock-time" id="current-time">--:--</div>
+    </div>
+    <div class="lock-progress-wrap">
+      <div class="lock-progress-bar">
+        <div class="lock-progress-fill" id="progress-fill" style="width:0%"></div>
+      </div>
+      <div class="lock-progress-text">
+        <span id="progress-done">0 exercice</span>
+        <span id="progress-total">sur 0</span>
+      </div>
+    </div>
+    <div class="workout-list" id="workout-list"></div>
+    <div class="unlock-wrap">
+      <button class="unlock-btn locked" id="unlock-btn" onclick="tryUnlock()">
+        <i class="ti ti-lock"></i>
+        <span id="unlock-label">DÉVERROUILLER</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="main-app">
+    <div class="tab-bar">
+      <button class="tab-btn active" onclick="showTab('today')" id="tab-today">
+        <i class="ti ti-bolt"></i>Aujourd'hui
+      </button>
+      <button class="tab-btn" onclick="showTab('program')" id="tab-program">
+        <i class="ti ti-list-check"></i>Programme
+      </button>
+      <button class="tab-btn" onclick="showTab('settings')" id="tab-settings">
+        <i class="ti ti-settings"></i>Réglages
+      </button>
+    </div>
+
+    <!-- TODAY TAB -->
+    <div class="tab-content active" id="content-today">
+      <div class="streak-banner">
+        <div>
+          <div class="streak-num" id="streak-num">0</div>
+          <div class="streak-label">🔥 jours de suite</div>
+        </div>
+        <div>
+          <div class="streak-sub" id="today-status">Pas encore commencé</div>
+          <div class="streak-label" id="today-date"></div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">Prochain verrou</div>
+        <div class="card">
+          <div class="setting-row">
+            <span class="setting-label">Heure d'activation</span>
+            <span class="setting-value" id="next-lock-display">--:--</span>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Statut</span>
+            <span class="setting-value" id="lock-status-display">Inactif</span>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="activateLockNow()" style="margin-top:12px;font-size:16px;letter-spacing:1px;">
+          🔒 ACTIVER LE VERROU MAINTENANT
+        </button>
+      </div>
+    </div>
+
+    <!-- PROGRAM TAB -->
+    <div class="tab-content" id="content-program">
+      <div class="section">
+        <div class="section-title">Exercices du programme</div>
+        <div id="ex-editor" class="ex-editor"></div>
+        <button class="add-ex-btn" onclick="addExercise()">
+          <i class="ti ti-plus"></i> Ajouter un exercice
+        </button>
+        <button class="btn-primary" onclick="saveProgram()">💾 SAUVEGARDER</button>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div class="tab-content" id="content-settings">
+      <div class="section">
+        <div class="section-title">Horaire de verrou</div>
+        <div class="card">
+          <div class="setting-row">
+            <span class="setting-label">Activer le verrou à</span>
+            <input type="time" class="time-input" id="lock-time-input" value="07:00" onchange="saveSetting('lockTime',this.value)">
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Verrou automatique</span>
+            <label class="toggle-wrap">
+              <input type="checkbox" id="auto-lock-toggle" onchange="saveSetting('autoLock',this.checked)">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <span class="setting-label">Jours actifs</span>
+          </div>
+          <div class="repeat-grid" id="day-selector"></div>
+        </div>
+      </div>
+      <div class="section" style="margin-top:16px;">
+        <div class="section-title">Apparence</div>
+        <div class="card">
+          <div class="setting-row">
+            <span class="setting-label">Titre de l'écran de verrou</span>
+          </div>
+          <input type="text" id="lock-title-input" placeholder="Mon Programme Sport"
+            style="width:100%;background:var(--bg3);border:1px solid var(--bg4);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-top:8px;"
+            onchange="saveSetting('lockTitle',this.value)">
+          <div class="setting-row" style="margin-top:12px;">
+            <span class="setting-label">Message de motivation</span>
+          </div>
+          <input type="text" id="lock-msg-input" placeholder="Complète ton programme"
+            style="width:100%;background:var(--bg3);border:1px solid var(--bg4);border-radius:8px;padding:10px 12px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;margin-top:8px;"
+            onchange="saveSetting('lockMsg',this.value)">
+        </div>
+      </div>
+      <div class="section" style="margin-top:16px;padding-bottom:30px;">
+        <div class="section-title">Danger</div>
+        <div class="card">
+          <button onclick="resetAll()" style="width:100%;padding:12px;background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.3);border-radius:var(--radius-sm);color:#ff4444;font-size:14px;cursor:pointer;font-family:'DM Sans',sans-serif;">
+            Réinitialiser toutes les données
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- EMOJI PICKER -->
+<div class="emoji-picker" id="emoji-picker">
+  <div class="emoji-grid" id="emoji-grid"></div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const EMOJIS=['💪','🏋️','🤸','🏃','🚴','🧘','⚡','🔥','🥊','🎯','🦵','🦾','🧗','🏊','⛹️','🤼','🏇','🎽','👟','🥇','🏆','🎖️','🌟','💯','⚙️','🔄','🔑','✅','📋','🎪','🌊','🧱','🪨','🗡️','🌀'];
+
+let state={
+  exercises:[
+    {id:1,name:'Pompes',detail:'3×20 reps',emoji:'💪',done:false},
+    {id:2,name:'Squats',detail:'4×15 reps',emoji:'🦵',done:false},
+    {id:3,name:'Abdos',detail:'3×30 reps',emoji:'🔥',done:false},
+    {id:4,name:'Gainage',detail:'3×60 sec',emoji:'⚡',done:false},
+  ],
+  locked:false,
+  settings:{
+    lockTime:'07:00',
+    autoLock:true,
+    lockTitle:'SportLock',
+    lockMsg:'Complète ton programme',
+    activeDays:[1,2,3,4,5],
+  },
+  streak:0,
+  lastCompleted:null,
+};
+
+let emojiTarget=null;
+
+function save(){localStorage.setItem('sportlock',JSON.stringify(state));}
+function load(){
+  const d=localStorage.getItem('sportlock');
+  if(d)try{const p=JSON.parse(d);state={...state,...p};state.settings={...state.settings,...p.settings};}catch(e){}
+}
+
+function saveSetting(key,val){
+  state.settings[key]=val;
+  save();
+  refreshToday();
+}
+
+function init(){
+  load();
+  buildDaySelector();
+  document.getElementById('lock-time-input').value=state.settings.lockTime||'07:00';
+  document.getElementById('auto-lock-toggle').checked=state.settings.autoLock!==false;
+  document.getElementById('lock-title-input').value=state.settings.lockTitle||'SportLock';
+  document.getElementById('lock-msg-input').value=state.settings.lockMsg||'Complète ton programme';
+  buildEmojiGrid();
+  renderLockScreen();
+  renderEditor();
+  refreshToday();
+  updateClock();
+  setInterval(updateClock,1000);
+  setInterval(checkAutoLock,60000);
+  checkAutoLock();
+  if(state.locked){showLock();}else{showApp();}
+}
+
+function updateClock(){
+  const now=new Date();
+  const h=String(now.getHours()).padStart(2,'0');
+  const m=String(now.getMinutes()).padStart(2,'0');
+  document.getElementById('current-time').textContent=h+':'+m;
+}
+
+function buildDaySelector(){
+  const days=['L','M','M','J','V','S','D'];
+  const container=document.getElementById('day-selector');
+  container.innerHTML='';
+  days.forEach((d,i)=>{
+    const dayNum=i===6?0:i+1;
+    const btn=document.createElement('button');
+    btn.className='day-btn'+(state.settings.activeDays.includes(dayNum)?' active':'');
+    btn.textContent=d;
+    btn.onclick=()=>toggleDay(dayNum,btn);
+    container.appendChild(btn);
+  });
+}
+
+function toggleDay(day,btn){
+  const idx=state.settings.activeDays.indexOf(day);
+  if(idx>-1)state.settings.activeDays.splice(idx,1);
+  else state.settings.activeDays.push(day);
+  btn.classList.toggle('active');
+  save();
+}
+
+function buildEmojiGrid(){
+  const grid=document.getElementById('emoji-grid');
+  grid.innerHTML='';
+  EMOJIS.forEach(e=>{
+    const span=document.createElement('span');
+    span.textContent=e;
+    span.onclick=()=>selectEmoji(e);
+    grid.appendChild(span);
+  });
+}
+
+function renderLockScreen(){
+  const list=document.getElementById('workout-list');
+  list.innerHTML='';
+  const s=state.settings;
+  document.querySelector('.lock-title').textContent=s.lockTitle||'SportLock';
+  document.querySelector('.lock-subtitle').textContent=s.lockMsg||'Complète ton programme';
+
+  state.exercises.forEach(ex=>{
+    const div=document.createElement('div');
+    div.className='exercise-item'+(ex.done?' done':'');
+    div.id='ex-'+ex.id;
+    div.innerHTML=`
+      <div class="ex-check">
+        <svg viewBox="0 0 16 16"><polyline points="2,8 6,12 14,4"/></svg>
+      </div>
+      <div class="ex-info">
+        <div class="ex-name">${ex.name}</div>
+        <div class="ex-detail">${ex.detail}</div>
+      </div>
+      <div class="ex-emoji">${ex.emoji}</div>
+    `;
+    div.onclick=()=>toggleExercise(ex.id);
+    list.appendChild(div);
+  });
+  updateProgress();
+}
+
+function toggleExercise(id){
+  const ex=state.exercises.find(e=>e.id===id);
+  if(!ex)return;
+  ex.done=!ex.done;
+  const item=document.getElementById('ex-'+id);
+  if(item)item.classList.toggle('done',ex.done);
+  if(ex.done){
+    item.style.transform='scale(1.02)';
+    setTimeout(()=>item.style.transform='',300);
+  }
+  save();
+  updateProgress();
+  checkAllDone();
+}
+
+function updateProgress(){
+  const total=state.exercises.length;
+  const done=state.exercises.filter(e=>e.done).length;
+  const pct=total?Math.round(done/total*100):0;
+  document.getElementById('progress-fill').style.width=pct+'%';
+  document.getElementById('progress-done').textContent=done+' exercice'+(done>1?'s':'');
+  document.getElementById('progress-total').textContent='sur '+total;
+  const btn=document.getElementById('unlock-btn');
+  const label=document.getElementById('unlock-label');
+  if(done===total&&total>0){
+    btn.className='unlock-btn unlocked';
+    label.textContent='DÉVERROUILLER ✓';
+    btn.querySelector('i').className='ti ti-lock-open';
+  } else {
+    btn.className='unlock-btn locked';
+    label.textContent=`DÉVERROUILLER (${done}/${total})`;
+    btn.querySelector('i').className='ti ti-lock';
+  }
+}
+
+function checkAllDone(){
+  const total=state.exercises.length;
+  const done=state.exercises.filter(e=>e.done).length;
+  if(done===total&&total>0){
+    showToast('🎉 Programme terminé !');
+  }
+}
+
+function tryUnlock(){
+  const total=state.exercises.length;
+  const done=state.exercises.filter(e=>e.done).length;
+  if(done<total){
+    showToast(`💪 Encore ${total-done} exercice${total-done>1?'s':''} !`);
+    const list=document.getElementById('workout-list');
+    list.querySelectorAll('.exercise-item:not(.done)')[0]?.scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+  }
+  completeSession();
+}
+
+function completeSession(){
+  state.locked=false;
+  const today=new Date().toDateString();
+  if(state.lastCompleted!==today){
+    const last=state.lastCompleted?new Date(state.lastCompleted):null;
+    const yesterday=new Date();yesterday.setDate(yesterday.getDate()-1);
+    if(last&&last.toDateString()===yesterday.toDateString())state.streak=(state.streak||0)+1;
+    else state.streak=1;
+    state.lastCompleted=today;
+  }
+  state.exercises.forEach(e=>e.done=false);
+  save();
+  showApp();
+  refreshToday();
+  showToast('🏆 Bien joué ! +1 streak');
+}
+
+function checkAutoLock(){
+  if(!state.settings.autoLock)return;
+  const now=new Date();
+  const day=now.getDay();
+  if(!state.settings.activeDays.includes(day))return;
+  const [lh,lm]=(state.settings.lockTime||'07:00').split(':').map(Number);
+  const lockDate=new Date();lockDate.setHours(lh,lm,0,0);
+  const today=now.toDateString();
+  if(now>=lockDate&&state.lastCompleted!==today&&!state.locked){
+    state.locked=true;
+    state.exercises.forEach(e=>e.done=false);
+    save();
+    showLock();
+  }
+}
+
+function showLock(){
+  renderLockScreen();
+  document.getElementById('lock-screen').style.display='flex';
+  document.getElementById('main-app').classList.remove('visible');
+}
+
+function showApp(){
+  document.getElementById('lock-screen').style.display='none';
+  document.getElementById('main-app').classList.add('visible');
+}
+
+function activateLockNow(){
+  state.locked=true;
+  state.exercises.forEach(e=>e.done=false);
+  save();
+  showLock();
+}
+
+function showTab(tab){
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('content-'+tab).classList.add('active');
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+function refreshToday(){
+  document.getElementById('streak-num').textContent=state.streak||0;
+  const today=new Date().toDateString();
+  document.getElementById('today-status').textContent=state.lastCompleted===today?'✅ Terminé !':'⏳ En cours';
+  document.getElementById('today-date').textContent=new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long'});
+  document.getElementById('next-lock-display').textContent=state.settings.lockTime||'--:--';
+  document.getElementById('lock-status-display').textContent=state.settings.autoLock?'Automatique':'Manuel';
+}
+
+/* PROGRAM EDITOR */
+function renderEditor(){
+  const ed=document.getElementById('ex-editor');
+  ed.innerHTML='';
+  state.exercises.forEach((ex,i)=>{
+    const row=document.createElement('div');
+    row.className='ex-row';
+    row.innerHTML=`
+      <span class="ex-row-emoji" onclick="openEmojiPicker(${ex.id})" title="Changer l'icône">${ex.emoji}</span>
+      <div style="flex:1;display:flex;flex-direction:column;gap:4px;">
+        <input type="text" value="${ex.name}" placeholder="Nom de l'exercice" onchange="updateEx(${ex.id},'name',this.value)" style="font-weight:500;font-size:14px;">
+        <input type="text" value="${ex.detail}" placeholder="ex: 3×15 reps" onchange="updateEx(${ex.id},'detail',this.value)" style="font-size:12px;color:var(--text3);">
+      </div>
+      <button class="ex-row-del" onclick="deleteEx(${ex.id})"><i class="ti ti-trash"></i></button>
+    `;
+    ed.appendChild(row);
+  });
+}
+
+function addExercise(){
+  const id=Date.now();
+  state.exercises.push({id,name:'Nouvel exercice',detail:'3×10 reps',emoji:'💪',done:false});
+  renderEditor();
+  save();
+}
+
+function updateEx(id,field,val){
+  const ex=state.exercises.find(e=>e.id===id);
+  if(ex)ex[field]=val;
+}
+
+function deleteEx(id){
+  if(state.exercises.length<=1){showToast('⚠️ Minimum 1 exercice');return;}
+  state.exercises=state.exercises.filter(e=>e.id!==id);
+  renderEditor();
+  save();
+}
+
+function saveProgram(){
+  save();
+  showToast('✅ Programme sauvegardé !');
+}
+
+function openEmojiPicker(id){
+  emojiTarget=id;
+  document.getElementById('emoji-picker').classList.add('open');
+}
+
+function selectEmoji(e){
+  if(emojiTarget!==null){
+    const ex=state.exercises.find(ex=>ex.id===emojiTarget);
+    if(ex){ex.emoji=e;renderEditor();save();}
+    emojiTarget=null;
+  }
+  document.getElementById('emoji-picker').classList.remove('open');
+}
+
+document.addEventListener('click',e=>{
+  if(!e.target.closest('#emoji-picker')&&!e.target.closest('.ex-row-emoji')){
+    document.getElementById('emoji-picker').classList.remove('open');
+    emojiTarget=null;
+  }
+});
+
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+function resetAll(){
+  if(!confirm('Effacer toutes les données ?'))return;
+  localStorage.removeItem('sportlock');
+  location.reload();
+}
+
+init();
+</script>
+</body>
+</html>
